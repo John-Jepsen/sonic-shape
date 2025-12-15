@@ -20,14 +20,21 @@
 - UX: production-facing UI changes.
 
 ## Current Priority Tracks (suggested branches)
-- `feature/spotify-oauth-curio`: Spotify OAuth flow + async client for metadata/audio features/previews (no secrets in repo).  
-- `feature/ingest-pipeline`: storage schema (Postgres+pgvector), ingestion jobs, and dedupe for tracks/artists/genres.  
-- `feature/speech-embeddings`: spoken-word pipeline (OpenL3/wav2vec), tagging, and filters.  
-- `feature/projection-service`: projection runner (UMAP versioning) + endpoints per `docs/map_api_ux.md`.  
-- `docs/presentation-outline`: slide outline covering assumptions, risks, user/business impact.  
-- `feature/linear-regression`: implement multivariable linear regression model + evaluation/reporting.
+
+### ✅ Completed
+- `feature/spotify-oauth-curio`: Spotify OAuth flow + async client (merged, working)
+
+### 🚧 In Progress  
+- `feature/audio-sources`: Alternative audio since Spotify deprecated previews (Nov 2024)
+
+### 📋 Up Next
+- `feature/ingest-pipeline`: storage schema (Postgres+pgvector), ingestion jobs, dedupe
+- `feature/projection-service`: projection runner (UMAP versioning) + endpoints per `docs/map_api_ux.md`
+- `feature/linear-regression`: implement multivariable linear regression model + evaluation/reporting
+- `docs/presentation-outline`: slide outline covering assumptions, risks, user/business impact
 
 ## Notes
 - Keep data under `data/` (gitignored); document provenance/licenses in `docs/`.  
 - Use `PYTHONPATH=src` or editable install for dev; ensure tests touch new paths.  
-- Prefer small PRs that each deliver one cohesive change.  
+- Prefer small PRs that each deliver one cohesive change.
+- **Spotify API changes (2024-2025):** audio-features endpoint deprecated, preview URLs restricted, redirect URIs must use `127.0.0.1` not `localhost`.  

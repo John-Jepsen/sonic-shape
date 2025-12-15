@@ -10,7 +10,7 @@ Outputs:
   - CSV with feature columns suitable for modeling/graph use.
 
 Example:
-  PYTHONPATH=src python scripts/extract_features.py --tracks data_samples/spotify_tracks.csv --audio-root data/previews --output data_samples/spotify_features.csv
+  PYTHONPATH=src python scripts/extract_features.py --tracks data_samples/spotify_tracks_with_paths.csv --audio-root . --output data_samples/spotify_features.csv
 """
 
 from __future__ import annotations

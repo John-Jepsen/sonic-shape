@@ -58,21 +58,91 @@ Run the suite:
 pytest
 ```
 
-## Data Fetching
-- EveryNoise genres to CSV:
+## Data Fetching Pipeline
+
+### 1. EveryNoise genres to CSV:
 ```bash
 PYTHONPATH=src python scripts/fetch_everynoise.py --output data_samples/everynoise_genres.csv
 ```
-- Spotify OAuth helper (generate URL / exchange code):
+
+### 2. Spotify OAuth setup:
 ```bash
-python scripts/spotify_oauth.py --step url --client-id $SPOTIFY_CLIENT_ID --redirect-uri $SPOTIFY_REDIRECT_URI --scope "user-library-read playlist-read-private"
-# After copying the code from the redirect:
-python scripts/spotify_oauth.py --step exchange --client-id $SPOTIFY_CLIENT_ID --client-secret $SPOTIFY_CLIENT_SECRET --redirect-uri $SPOTIFY_REDIRECT_URI --code <AUTH_CODE>
+# Generate authorization URL (use 127.0.0.1, not localhost per Spotify's 2025 policy)
+python scripts/spotify_oauth.py --step url \
+  --client-id $SPOTIFY_CLIENT_ID \
+  --redirect-uri http://127.0.0.1:8888/callback \
+  --scope "user-library-read playlist-read-private"
+
+# After authorizing and copying the code from the redirect URL:
+python scripts/spotify_oauth.py --step exchange \
+  --client-id $SPOTIFY_CLIENT_ID \
+  --client-secret $SPOTIFY_CLIENT_SECRET \
+  --redirect-uri http://127.0.0.1:8888/callback \
+  --code <AUTH_CODE>
 ```
-- Spotify library sample to CSV (requires access token env):
+
+### 3. Fetch Spotify playlists and tracks:
 ```bash
-SPOTIFY_ACCESS_TOKEN=<token> PYTHONPATH=src python scripts/fetch_spotify.py --max-tracks 500 --output-dir data_samples
+export SPOTIFY_CLIENT_ID=<your_client_id>
+export SPOTIFY_CLIENT_SECRET=<your_client_secret>
+export SPOTIFY_REFRESH_TOKEN=<your_refresh_token>
+
+# Fetch from public genre playlists (default):
+PYTHONPATH=src python scripts/fetch_spotify.py \
+  --source featured \
+  --max-playlists 100 \
+  --max-tracks 5000 \
+  --output-dir data_samples
+
+# Or fetch from your own playlists:
+PYTHONPATH=src python scripts/fetch_spotify.py --source me --max-tracks 500 --output-dir data_samples
 ```
+
+### 4. Download audio previews (if available):
+```bash
+PYTHONPATH=src python scripts/download_previews.py \
+  --tracks data_samples/spotify_tracks.csv \
+  --audio-root data/previews \
+  --output data_samples/spotify_tracks_with_paths.csv
+```
+> **Note:** Spotify restricted preview URLs for new apps (Nov 2024). Most tracks return empty preview_url.
+
+### 5. Build graph edges:
+```bash
+PYTHONPATH=src python scripts/spotify_to_graph.py \
+  --playlists data_samples/spotify_playlists.csv \
+  --tracks data_samples/spotify_tracks.csv \
+  --output data_samples/spotify_edges.csv
+```
+
+### 6. Extract audio features (requires audio files):
+```bash
+PYTHONPATH=src python scripts/extract_features.py \
+  --tracks data_samples/spotify_tracks_with_paths.csv \
+  --audio-root . \
+  --output data_samples/spotify_features.csv
+```
+
+### 7. Load into Postgres:
+```bash
+PGHOST=... PGPORT=... PGUSER=... PGPASSWORD=... PGDATABASE=... \
+PYTHONPATH=src python scripts/load_postgres.py \
+  --playlists data_samples/spotify_playlists.csv \
+  --tracks data_samples/spotify_tracks_with_paths.csv \
+  --edges data_samples/spotify_edges.csv \
+  --everynoise data_samples/everynoise_genres.csv
+```
+
+## Current Data Status
+- **102 playlists** fetched from Spotify genre searches
+- **5,000 tracks** with metadata (name, artist, popularity)
+- **10,050 graph edges** (playlist→track, track→artist relationships)
+- **0 audio previews** (Spotify API restriction)
+
+## Known Limitations
+- **Spotify audio-features API** deprecated for new apps (Nov 2024). We extract our own features from audio files instead.
+- **Preview URLs** restricted. Alternative audio sources (Free Music Archive, etc.) needed for feature extraction.
+- **Redirect URI** must use `http://127.0.0.1:PORT/callback` (not `localhost`) per Spotify's April 2025 policy.
 
 ## Notes
 - Keep raw audio and large artifacts out of Git; use `data/`.
