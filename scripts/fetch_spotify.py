@@ -26,7 +26,7 @@ from classically_punk.ingest.spotify_auth import EnvTokenStore
 from classically_punk.ingest.spotify_client import SpotifyAuthConfig, SpotifyClient
 
 
-async def collect(client: SpotifyClient, max_tracks: int = 500):
+async def collect(client: SpotifyClient, max_tracks: int = 5000, max_playlists: int = 200):
     async def paginate(path: str, params: dict | None = None):
         url = path
         first = True
@@ -39,7 +39,7 @@ async def collect(client: SpotifyClient, max_tracks: int = 500):
     playlists: List[dict] = []
     async for page in paginate("me/playlists", params={"limit": 50}):
         playlists.extend(page.get("items", []))
-        if len(playlists) >= 1000:
+        if len(playlists) >= max_playlists:
             break
 
     tracks: List[dict] = []
@@ -84,6 +84,7 @@ async def collect(client: SpotifyClient, max_tracks: int = 500):
 async def main():
     parser = argparse.ArgumentParser(description="Fetch Spotify playlists/tracks.")
     parser.add_argument("--max-tracks", type=int, default=500)
+    parser.add_argument("--max-playlists", type=int, default=200)
     parser.add_argument("--output-dir", type=Path, default=Path("data_samples"))
     args = parser.parse_args()
 
@@ -93,7 +94,7 @@ async def main():
         redirect_uri=os.environ.get("SPOTIFY_REDIRECT_URI", "http://localhost"),
     )
     client = SpotifyClient(auth_config=auth, token_store=EnvTokenStore())
-    playlists, tracks, features = await collect(client, max_tracks=args.max_tracks)
+    playlists, tracks, features = await collect(client, max_tracks=args.max_tracks, max_playlists=args.max_playlists)
     await client.close()
 
     outdir = args.output_dir
