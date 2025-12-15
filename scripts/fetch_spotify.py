@@ -27,39 +27,56 @@ from classically_punk.ingest.spotify_client import SpotifyAuthConfig, SpotifyCli
 
 
 async def collect(client: SpotifyClient, max_tracks: int = 500):
-    playlists_resp = await client.list_user_playlists(limit=50)
-    playlists = playlists_resp.get("items", [])
+    async def paginate(path: str, params: dict | None = None):
+        url = path
+        first = True
+        while url:
+            resp = await client.get(url, params=params if first else None)
+            yield resp
+            url = resp.get("next")
+            first = False
+
+    playlists: List[dict] = []
+    async for page in paginate("me/playlists", params={"limit": 50}):
+        playlists.extend(page.get("items", []))
+        if len(playlists) >= 1000:
+            break
 
     tracks: List[dict] = []
     for pl in playlists:
         pl_id = pl["id"]
         pl_name = pl["name"]
-        items_resp = await client.list_playlist_items(pl_id, limit=100)
-        for item in items_resp.get("items", []):
-            track = item.get("track")
-            if not track:
-                continue
-            tracks.append(
-                {
-                    "playlist_id": pl_id,
-                    "playlist_name": pl_name,
-                    "track_id": track["id"],
-                    "track_name": track["name"],
-                    "artist_ids": [a["id"] for a in track.get("artists", [])],
-                    "artist_names": [a["name"] for a in track.get("artists", [])],
-                    "preview_url": track.get("preview_url"),
-                    "duration_ms": track.get("duration_ms"),
-                    "popularity": track.get("popularity"),
-                }
-            )
+        async for items_resp in paginate(f"playlists/{pl_id}/tracks", params={"limit": 100}):
+            for item in items_resp.get("items", []):
+                track = item.get("track")
+                if not track:
+                    continue
+                tracks.append(
+                    {
+                        "playlist_id": pl_id,
+                        "playlist_name": pl_name,
+                        "track_id": track["id"],
+                        "track_name": track["name"],
+                        "artist_ids": [a["id"] for a in track.get("artists", [])],
+                        "artist_names": [a["name"] for a in track.get("artists", [])],
+                        "preview_url": track.get("preview_url"),
+                        "duration_ms": track.get("duration_ms"),
+                        "popularity": track.get("popularity"),
+                    }
+                )
+                if len(tracks) >= max_tracks:
+                    break
             if len(tracks) >= max_tracks:
                 break
         if len(tracks) >= max_tracks:
             break
 
     track_ids = [t["track_id"] for t in tracks if t.get("track_id")]
-    features_resp = await client.get_audio_features(track_ids[:100]) if track_ids else {"audio_features": []}
-    features = features_resp.get("audio_features", [])
+    features: List[dict] = []
+    for i in range(0, len(track_ids), 100):
+        chunk = track_ids[i : i + 100]
+        features_resp = await client.get_audio_features(chunk)
+        features.extend(features_resp.get("audio_features", []))
 
     return playlists, tracks, features
 
