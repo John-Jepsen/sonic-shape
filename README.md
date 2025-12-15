@@ -8,6 +8,7 @@ Genre classification and audio feature mapping inspired by EveryNoise. The goal 
   - `features/visualization.py`: 3D projections, density surfaces, Plotly exports.
   - `models/`: modeling helpers (to be added).
   - `ingest/`: external API clients (Spotify via Curio scaffolding).
+    - `ingest/everynoise.py`: scrape EveryNoise genre map.
   - `graph/`: graph schema, kNN edges, glyphs, and genre hull generation.
 - `tests/`: pytest suite for utilities.
 - `context/`: project briefs and inspiration docs.
@@ -54,6 +55,12 @@ coords_df, umap_model = project_with_umap(df, target_col="label", n_components=2
 Run the suite:
 ```bash
 pytest
+```
+
+## Data Fetching
+- EveryNoise genres to CSV:
+```bash
+PYTHONPATH=src python scripts/fetch_everynoise.py --output data_samples/everynoise_genres.csv
 ```
 
 ## Notes

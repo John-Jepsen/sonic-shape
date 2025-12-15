@@ -12,3 +12,4 @@ curio
 plotly
 networkx
 scipy
+requests
