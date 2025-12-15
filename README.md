@@ -5,8 +5,10 @@ Genre classification and audio feature mapping inspired by EveryNoise. The goal 
 - `src/classically_punk/`: package code.
   - `data/`: dataset indexing and loading.
   - `features/`: audio feature extraction.
+  - `features/visualization.py`: 3D projections, density surfaces, Plotly exports.
   - `models/`: modeling helpers (to be added).
   - `ingest/`: external API clients (Spotify via Curio scaffolding).
+  - `graph/`: graph schema, kNN edges, glyphs, and genre hull generation.
 - `tests/`: pytest suite for utilities.
 - `context/`: project briefs and inspiration docs.
 - `docs/`: add pipeline notes and reports here.

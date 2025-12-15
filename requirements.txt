@@ -9,3 +9,6 @@ tqdm
 umap-learn
 pytest
 curio
+plotly
+networkx
+scipy
