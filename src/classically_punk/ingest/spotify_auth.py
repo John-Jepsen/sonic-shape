@@ -94,6 +94,10 @@ class EnvTokenStore:
             data["expires_at"] = int(expires_at)
         return data
 
+    def save(self, data: Dict[str, object]) -> None:
+        # No-op for env store; user can export manually.
+        return None
+
 
 class FileTokenStore:
     """

@@ -1,19 +1,21 @@
 """
-Spotify client scaffolding using Curio.
+Spotify client scaffolding using async HTTP (httpx).
 
-Provides a structured place to implement OAuth and rate-limited async fetches for
-artists, tracks, playlists, and audio features. Actual HTTP calls should be
-wired using Curio-friendly HTTP (e.g., asks/httpx with curio backend) and mocked
-in tests.
+Provides OAuth-aware, rate-limited fetches for artists, tracks, playlists, and
+audio features. The client refreshes tokens automatically when a refresh token
+is available.
 """
 
 from __future__ import annotations
 
+import asyncio
+import time
 from dataclasses import dataclass
-from typing import Dict, Optional, Protocol
+from typing import Dict, Optional
 
-# Note: curio import removed from top-level to avoid platform issues in sync contexts.
-import requests
+import httpx
+
+from classically_punk.ingest.spotify_auth import refresh_access_token
 
 
 @dataclass
@@ -26,43 +28,54 @@ class SpotifyAuthConfig:
 
 class SpotifyClient:
     """
-    Minimal skeleton for Spotify Web API calls.
-
-    TODO: Implement:
-      - Authorization Code flow (PKCE or secret-based) to obtain/refresh tokens.
-      - Async HTTP GET/POST with rate limiting (429 handling, Retry-After).
-      - Methods: get_me(), get_playlists(), get_playlist_items(), get_saved_tracks(),
-        get_artists(ids), get_tracks(ids), get_audio_features(ids), search().
-      - Preview URI and genre capture for map/projection pipeline.
+    Spotify Web API client with token refresh and basic rate limiting.
     """
 
-    def __init__(self, auth_config: SpotifyAuthConfig, token_store, session: Optional[requests.Session] = None):
+    def __init__(self, auth_config: SpotifyAuthConfig, token_store, http_client: Optional[httpx.AsyncClient] = None):
         self.auth_config = auth_config
         self.token_store = token_store  # inject storage (file/env/secrets manager)
-        self.session = session or requests.Session()
+        self.http = http_client or httpx.AsyncClient(base_url="https://api.spotify.com/v1", timeout=30)
 
     async def ensure_token(self) -> Dict[str, str]:
-        """
-        Placeholder for token retrieval/refresh.
-        """
-        # TODO: implement token fetch/refresh with PKCE or client_secret.
-        return self.token_store.load()
+        """Retrieve a valid access token; refresh if expired and refresh token available."""
+        tokens = self.token_store.load()
+        access_token = tokens.get("access_token")
+        refresh_token = tokens.get("refresh_token")
+        expires_at = tokens.get("expires_at")
+        now = time.time()
+
+        if access_token and expires_at and now < expires_at - 60:
+            return tokens
+
+        if refresh_token:
+            refreshed = refresh_access_token(
+                client_id=self.auth_config.client_id,
+                client_secret=self.auth_config.client_secret,
+                refresh_token=refresh_token,
+            )
+            if hasattr(self.token_store, "save"):
+                try:
+                    self.token_store.save(refreshed)  # type: ignore
+                except Exception:
+                    pass
+            return refreshed
+
+        # Fallback to whatever we have
+        if access_token:
+            return tokens
+        raise RuntimeError("No access token available. Set SPOTIFY_ACCESS_TOKEN or provide refresh flow.")
 
     async def get(self, path: str, params: Optional[Dict[str, str]] = None) -> Dict:
         """
-        Placeholder for rate-limited GET.
+        Rate-limited GET with retry on 429.
         """
-        # TODO: implement rate-limited async HTTP using curio + asks/httpx; this is a sync placeholder.
-        url = f"https://api.spotify.com/v1/{path.lstrip('/')}"
+        url = path if path.startswith("http") else f"/{path.lstrip('/')}"
         token = await self.ensure_token()
         headers = {"Authorization": f"Bearer {token['access_token']}"}
-        # NOTE: This is synchronous; replace with async HTTP client (e.g., asks/httpx-curio) in production.
-        resp = self.session.get(url, params=params or {}, headers=headers, timeout=30)
+        resp = await self.http.get(url, params=params or {}, headers=headers)
         if resp.status_code == 429:
             retry_after = int(resp.headers.get("Retry-After", "1"))
-            import time
-
-            time.sleep(retry_after)
+            await asyncio.sleep(retry_after)
             return await self.get(path, params=params)
         resp.raise_for_status()
         return resp.json()
@@ -79,3 +92,6 @@ class SpotifyClient:
     async def get_audio_features(self, track_ids: list[str]) -> Dict:
         joined = ",".join(track_ids)
         return await self.get("audio-features", params={"ids": joined})
+
+    async def close(self):
+        await self.http.aclose()

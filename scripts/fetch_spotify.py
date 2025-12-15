@@ -3,7 +3,9 @@
 Fetch Spotify library slices (playlists, saved tracks, audio features) into CSV.
 
 Requires environment variables:
-  SPOTIFY_ACCESS_TOKEN=<token>  (temporary bearer; TODO: replace with OAuth refresh)
+  SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, and either:
+    - SPOTIFY_REFRESH_TOKEN (preferred), or
+    - SPOTIFY_ACCESS_TOKEN (short-lived)
 
 Outputs:
   data_samples/spotify_playlists.csv
@@ -20,15 +22,8 @@ from typing import List
 
 import pandas as pd
 
+from classically_punk.ingest.spotify_auth import EnvTokenStore
 from classically_punk.ingest.spotify_client import SpotifyAuthConfig, SpotifyClient
-
-
-class EnvTokenStore:
-    def load(self):
-        token = os.environ.get("SPOTIFY_ACCESS_TOKEN")
-        if not token:
-            raise RuntimeError("SPOTIFY_ACCESS_TOKEN not set")
-        return {"access_token": token, "token_type": "Bearer"}
 
 
 async def collect(client: SpotifyClient, max_tracks: int = 500):
@@ -75,9 +70,14 @@ async def main():
     parser.add_argument("--output-dir", type=Path, default=Path("data_samples"))
     args = parser.parse_args()
 
-    auth = SpotifyAuthConfig(client_id="dummy", client_secret="dummy", redirect_uri="http://localhost")
+    auth = SpotifyAuthConfig(
+        client_id=os.environ.get("SPOTIFY_CLIENT_ID", "dummy"),
+        client_secret=os.environ.get("SPOTIFY_CLIENT_SECRET", "dummy"),
+        redirect_uri=os.environ.get("SPOTIFY_REDIRECT_URI", "http://localhost"),
+    )
     client = SpotifyClient(auth_config=auth, token_store=EnvTokenStore())
     playlists, tracks, features = await collect(client, max_tracks=args.max_tracks)
+    await client.close()
 
     outdir = args.output_dir
     outdir.mkdir(parents=True, exist_ok=True)
@@ -88,6 +88,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    import curio
+    import asyncio
+    import os
 
-    curio.run(main)
+    asyncio.run(main())
