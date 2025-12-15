@@ -26,7 +26,7 @@ from classically_punk.ingest.spotify_auth import EnvTokenStore
 from classically_punk.ingest.spotify_client import SpotifyAuthConfig, SpotifyClient
 
 
-async def collect(client: SpotifyClient, max_tracks: int = 5000, max_playlists: int = 200):
+async def collect(client: SpotifyClient, max_tracks: int = 5000, max_playlists: int = 200, source: str = "featured"):
     async def paginate(path: str, params: dict | None = None):
         url = path
         first = True
@@ -37,10 +37,28 @@ async def collect(client: SpotifyClient, max_tracks: int = 5000, max_playlists: 
             first = False
 
     playlists: List[dict] = []
-    async for page in paginate("me/playlists", params={"limit": 50}):
-        playlists.extend(page.get("items", []))
-        if len(playlists) >= max_playlists:
-            break
+    
+    if source == "me":
+        # User's own playlists
+        async for page in paginate("me/playlists", params={"limit": 50}):
+            playlists.extend(page.get("items", []))
+            if len(playlists) >= max_playlists:
+                break
+    else:
+        # Search for playlists by genre keywords for variety
+        genres = ["rock", "pop", "jazz", "classical", "hip hop", "electronic", "indie", "metal", "punk", "r&b", "country", "latin", "blues", "folk", "soul"]
+        seen_ids = set()
+        for genre in genres:
+            if len(playlists) >= max_playlists:
+                break
+            try:
+                search_resp = await client.get("search", params={"q": genre, "type": "playlist", "limit": 20})
+                for pl in search_resp.get("playlists", {}).get("items", []):
+                    if pl and pl.get("id") not in seen_ids:
+                        seen_ids.add(pl["id"])
+                        playlists.append(pl)
+            except Exception:
+                continue
 
     tracks: List[dict] = []
     for pl in playlists:
@@ -71,12 +89,9 @@ async def collect(client: SpotifyClient, max_tracks: int = 5000, max_playlists: 
         if len(tracks) >= max_tracks:
             break
 
-    track_ids = [t["track_id"] for t in tracks if t.get("track_id")]
+    # Note: Spotify deprecated the audio-features endpoint for new apps (Nov 2024).
+    # We'll extract our own features from audio previews instead.
     features: List[dict] = []
-    for i in range(0, len(track_ids), 100):
-        chunk = track_ids[i : i + 100]
-        features_resp = await client.get_audio_features(chunk)
-        features.extend(features_resp.get("audio_features", []))
 
     return playlists, tracks, features
 
@@ -86,6 +101,7 @@ async def main():
     parser.add_argument("--max-tracks", type=int, default=500)
     parser.add_argument("--max-playlists", type=int, default=200)
     parser.add_argument("--output-dir", type=Path, default=Path("data_samples"))
+    parser.add_argument("--source", choices=["me", "featured"], default="featured", help="'me' for user playlists, 'featured' for public/category playlists")
     args = parser.parse_args()
 
     auth = SpotifyAuthConfig(
@@ -94,7 +110,7 @@ async def main():
         redirect_uri=os.environ.get("SPOTIFY_REDIRECT_URI", "http://localhost"),
     )
     client = SpotifyClient(auth_config=auth, token_store=EnvTokenStore())
-    playlists, tracks, features = await collect(client, max_tracks=args.max_tracks, max_playlists=args.max_playlists)
+    playlists, tracks, features = await collect(client, max_tracks=args.max_tracks, max_playlists=args.max_playlists, source=args.source)
     await client.close()
 
     outdir = args.output_dir
