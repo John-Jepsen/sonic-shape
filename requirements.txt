@@ -16,3 +16,4 @@ requests
 langdetect
 Unidecode
 httpx
+psycopg[binary]>=3.1.18
