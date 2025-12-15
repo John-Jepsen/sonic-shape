@@ -1,0 +1,25 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# OS files
+.DS_Store
+
+# Project data and artifacts
+data/
+outputs/
+artifacts/
+
+# Notebooks and checkpoints
+.ipynb_checkpoints/
+
+# Editor settings
+.idea/
+.vscode/
+
