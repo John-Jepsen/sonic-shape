@@ -22,6 +22,9 @@ class Glyph:
     vertices: List[Tuple[float, float, float]]
     metadata: Dict[str, object]
 
+    def to_json(self) -> Dict[str, object]:
+        return {"id": self.id, "vertices": self.vertices, "metadata": self.metadata}
+
 
 def radial_glyph_from_features(
     feature_vector: np.ndarray,
@@ -91,3 +94,9 @@ def build_genre_hulls(projection_df: pd.DataFrame, label_col: str = "label") -> 
             continue
     return hulls
 
+
+def hulls_to_json(hulls: Dict[str, Dict[str, object]]) -> Dict[str, object]:
+    """
+    Convert hull dict to JSON-serializable form for frontend consumption.
+    """
+    return {label: hull for label, hull in hulls.items()}

@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
 
-from classically_punk.graph.schema import aggregate_genre_embeddings, build_knn_edges
+from pathlib import Path
+
+from classically_punk.graph.export import edges_to_networkx, export_node_link_json
+from classically_punk.graph.schema import Edge, aggregate_genre_embeddings, build_knn_edges
 from classically_punk.graph.shapes import build_genre_hulls, radial_glyph_from_features
 
 
@@ -47,3 +50,17 @@ def test_build_genre_hulls():
     hulls = build_genre_hulls(coords, label_col="label")
     assert "rock" in hulls and "jazz" in hulls
     assert hulls["rock"]["vertices"]
+
+
+def test_edges_to_networkx_and_export(tmp_path):
+    edges = [
+        Edge(src="a", dst="b", type="SIMILAR_TO", weight=0.9, source="test", version="v1"),
+        Edge(src="b", dst="c", type="HAS_TAG", weight=1.0, source="test", version="v1"),
+    ]
+    G = edges_to_networkx(edges)
+    assert G.number_of_nodes() == 3
+    assert G.number_of_edges() == 2
+
+    out = tmp_path / "graph.json"
+    export_node_link_json(edges, out)
+    assert out.exists()
