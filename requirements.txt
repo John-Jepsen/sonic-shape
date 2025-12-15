@@ -13,3 +13,5 @@ plotly
 networkx
 scipy
 requests
+langdetect
+Unidecode
