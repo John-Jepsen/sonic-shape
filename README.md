@@ -1,23 +1,60 @@
-# Welcome to Classically Punk
-***
+# Classically Punk
+Genre classification and audio feature mapping inspired by EveryNoise. The goal is to ingest music datasets, extract robust features, and classify genres while exposing data for interactive maps and analysis.
 
-## Task
-TODO - What is the problem? And where is the challenge?
+## Project Layout
+- `src/classically_punk/`: package code.
+  - `data/`: dataset indexing and loading.
+  - `features/`: audio feature extraction.
+  - `models/`: modeling helpers (to be added).
+  - `ingest/`: external API clients (Spotify via Curio scaffolding).
+- `tests/`: pytest suite for utilities.
+- `context/`: project briefs and inspiration docs.
+- `docs/`: add pipeline notes and reports here.
+- `data/`: place local audio datasets (gitignored).
 
-## Description
-TODO - How have you solved the problem?
-
-## Installation
-TODO - How to install your project? npm install? make? make re?
-
-## Usage
-TODO - How does it work?
+## Setup
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+# Add `export PYTHONPATH=src` to use the package without installing.
 ```
-./my_project argument1 argument2
+
+## Usage Examples
+Index labeled folders (e.g., GTZAN-style):
+```python
+from classically_punk.data.dataset import index_labeled_folders
+rows = index_labeled_folders("data/gtzan")
 ```
 
-### The Core Team
+Extract features into a DataFrame:
+```python
+from classically_punk.features.audio import featurize_dataset
+df = featurize_dataset(rows, sr=22050, duration=30.0, n_mfcc=20)
+```
 
+Train a baseline classifier:
+```python
+from classically_punk.models import train_baseline_classifier, evaluate_classifier
 
-<span><i>Made at <a href='https://qwasar.io'>Qwasar SV -- Software Engineering School</a></i></span>
-<span><img alt='Qwasar SV -- Software Engineering School's Logo' src='https://storage.googleapis.com/qwasar-public/qwasar-logo_50x50.png' width='20px' /></span>
+clf, X_test, y_test = train_baseline_classifier(df, target_col="label")
+metrics = evaluate_classifier(clf, X_test, y_test)
+print(metrics["accuracy"])
+```
+
+Project to 2D map coordinates (EveryNoise-style):
+```python
+from classically_punk.features.projection import project_with_umap
+coords_df, umap_model = project_with_umap(df, target_col="label", n_components=2)
+```
+
+## Testing
+Run the suite:
+```bash
+pytest
+```
+
+## Notes
+- Keep raw audio and large artifacts out of Git; use `data/`.
+- Reference `context/project_description.md` and `context/everynoise_inspiration.md` for the product brief and roadmap.
+- Contributor guidance: see `AGENTS.md`.
