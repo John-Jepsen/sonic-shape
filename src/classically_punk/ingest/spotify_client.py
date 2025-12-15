@@ -10,7 +10,10 @@ in tests.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Protocol
+
+# Note: curio import removed from top-level to avoid platform issues in sync contexts.
+import requests
 
 
 @dataclass
@@ -33,31 +36,46 @@ class SpotifyClient:
       - Preview URI and genre capture for map/projection pipeline.
     """
 
-    def __init__(self, auth_config: SpotifyAuthConfig, token_store):
+    def __init__(self, auth_config: SpotifyAuthConfig, token_store, session: Optional[requests.Session] = None):
         self.auth_config = auth_config
         self.token_store = token_store  # inject storage (file/env/secrets manager)
+        self.session = session or requests.Session()
 
     async def ensure_token(self) -> Dict[str, str]:
         """
         Placeholder for token retrieval/refresh.
         """
-        raise NotImplementedError("OAuth flow not yet implemented.")
+        # TODO: implement token fetch/refresh with PKCE or client_secret.
+        return self.token_store.load()
 
     async def get(self, path: str, params: Optional[Dict[str, str]] = None) -> Dict:
         """
         Placeholder for rate-limited GET.
         """
-        raise NotImplementedError("HTTP GET not yet implemented.")
+        # TODO: implement rate-limited async HTTP using curio + asks/httpx; this is a sync placeholder.
+        url = f"https://api.spotify.com/v1/{path.lstrip('/')}"
+        token = await self.ensure_token()
+        headers = {"Authorization": f"Bearer {token['access_token']}"}
+        # NOTE: This is synchronous; replace with async HTTP client (e.g., asks/httpx-curio) in production.
+        resp = self.session.get(url, params=params or {}, headers=headers, timeout=30)
+        if resp.status_code == 429:
+            retry_after = int(resp.headers.get("Retry-After", "1"))
+            import time
+
+            time.sleep(retry_after)
+            return await self.get(path, params=params)
+        resp.raise_for_status()
+        return resp.json()
 
     async def list_user_playlists(self, limit: int = 50) -> Dict:
-        raise NotImplementedError
+        return await self.get("me/playlists", params={"limit": limit})
 
     async def list_playlist_items(self, playlist_id: str, limit: int = 100) -> Dict:
-        raise NotImplementedError
+        return await self.get(f"playlists/{playlist_id}/tracks", params={"limit": limit})
 
     async def list_saved_tracks(self, limit: int = 50) -> Dict:
-        raise NotImplementedError
+        return await self.get("me/tracks", params={"limit": limit})
 
     async def get_audio_features(self, track_ids: list[str]) -> Dict:
-        raise NotImplementedError
-
+        joined = ",".join(track_ids)
+        return await self.get("audio-features", params={"ids": joined})
