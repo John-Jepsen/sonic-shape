@@ -2,13 +2,6 @@
 
 Genre classification and audio feature mapping inspired by EveryNoise. Ingest music datasets, extract features, classify genres, and build interactive maps.
 
-## Quick Start
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-pytest  # run tests
-```
-
 ## Current Data
 - **102 playlists** from Spotify genre searches
 - **5,000 tracks** with metadata
@@ -24,15 +17,6 @@ src/classically_punk/
   graph/      # schema, kNN edges, export
 scripts/      # CLI pipeline tools
 data_samples/ # CSV outputs
-```
-
-## Pipeline
-```bash
-# Fetch from Spotify
-PYTHONPATH=src python scripts/fetch_spotify.py --source featured --max-tracks 5000
-
-# Build graph
-PYTHONPATH=src python scripts/spotify_to_graph.py --playlists data_samples/spotify_playlists.csv --tracks data_samples/spotify_tracks.csv --output data_samples/spotify_edges.csv
 ```
 
 ## Known Limitations
