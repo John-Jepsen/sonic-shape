@@ -7,7 +7,8 @@ Genre classification and audio feature mapping inspired by EveryNoise. The goal 
   - `features/`: audio feature extraction.
   - `features/visualization.py`: 3D projections, density surfaces, Plotly exports.
   - `models/`: modeling helpers (to be added).
-  - `ingest/`: external API clients (Spotify via Curio scaffolding).
+  - `ingest/`: external API clients (Spotify, EveryNoise).
+    - `ingest/spotify_auth.py`: OAuth helpers (auth URL, token exchange/refresh).
     - `ingest/everynoise.py`: scrape EveryNoise genre map.
   - `graph/`: graph schema, kNN edges, glyphs, and genre hull generation.
 - `tests/`: pytest suite for utilities.
@@ -61,6 +62,16 @@ pytest
 - EveryNoise genres to CSV:
 ```bash
 PYTHONPATH=src python scripts/fetch_everynoise.py --output data_samples/everynoise_genres.csv
+```
+- Spotify OAuth helper (generate URL / exchange code):
+```bash
+python scripts/spotify_oauth.py --step url --client-id $SPOTIFY_CLIENT_ID --redirect-uri $SPOTIFY_REDIRECT_URI --scope "user-library-read playlist-read-private"
+# After copying the code from the redirect:
+python scripts/spotify_oauth.py --step exchange --client-id $SPOTIFY_CLIENT_ID --client-secret $SPOTIFY_CLIENT_SECRET --redirect-uri $SPOTIFY_REDIRECT_URI --code <AUTH_CODE>
+```
+- Spotify library sample to CSV (requires access token env):
+```bash
+SPOTIFY_ACCESS_TOKEN=<token> PYTHONPATH=src python scripts/fetch_spotify.py --max-tracks 500 --output-dir data_samples
 ```
 
 ## Notes
